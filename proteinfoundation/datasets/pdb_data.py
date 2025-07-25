@@ -681,23 +681,23 @@ class PDBLightningDataModule(BaseLightningDataModule):
                 fill_value_coords=fill_value_coords,
             )
 
+            coord_mask = graph.coords != fill_value_coords
+            graph.coord_mask = coord_mask[..., 0]
+            graph.residue_type = torch.tensor(
+                [resname_to_idx[residue] for residue in graph.residues]
+            ).long()
+            graph.database = "pdb"
+            graph.bfactor_avg = torch.mean(graph.bfactor, dim=-1)
+            graph.residue_pdb_idx = torch.tensor(
+                [int(s.split(":")[2]) for s in graph.residue_id], dtype=torch.long
+            )
+            graph.seq_pos = torch.arange(graph.coords.shape[0]).unsqueeze(-1)
         except Exception as e:
             logger.warning(f"Error processing {pdb} {chains}: {e}")
             return None
         fname = f"{pdb}.pt" if chains == "all" else f"{pdb}_{chains}.pt"
 
         graph.id = fname.split(".")[0]
-        coord_mask = graph.coords != fill_value_coords
-        graph.coord_mask = coord_mask[..., 0]
-        graph.residue_type = torch.tensor(
-            [resname_to_idx[residue] for residue in graph.residues]
-        ).long()
-        graph.database = "pdb"
-        graph.bfactor_avg = torch.mean(graph.bfactor, dim=-1)
-        graph.residue_pdb_idx = torch.tensor(
-            [int(s.split(":")[2]) for s in graph.residue_id], dtype=torch.long
-        )
-        graph.seq_pos = torch.arange(graph.coords.shape[0]).unsqueeze(-1)
 
         if self.pre_transform:
             graph = self.pre_transform(graph)
@@ -760,10 +760,13 @@ class PDBLightningDataModule(BaseLightningDataModule):
         df_split = self.dfs_splits[split]
         self.clusterid_to_seqid_mappings = self.clusterid_to_seqid_mappings
         pdb_codes = df_split["pdb"].tolist()
+
         # Check if 'chain' column exists in the DataFrame
         if 'chain' in df_split.columns:
             chains = df_split["chain"].tolist()
-            file_names = [f"{pdb}_{chain}" for pdb, chain in zip(pdb_codes, chains)]
+            def _file_name(pdb, chain):
+                return f"{pdb}_{chain}" if chain else f"{pdb}"
+            file_names = [_file_name(pdb, chain) for pdb, chain in zip(pdb_codes, chains)]
         else:
             chains = None
             file_names = [f"{pdb}" for pdb in pdb_codes]

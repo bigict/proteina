@@ -375,7 +375,7 @@ def expand_cluster_splits(
         if len(split_cluster_members_df) > 0:
             split_cluster_members_df[["pdb", "chain"]] = split_cluster_members_df[
                 "id"
-            ].str.split("_", n=1, expand=True)
+            ].str.split("_|$", n=1, expand=True)
         # Add the expanded DataFrame to the dictionary
         full_cluster_splits[split_name] = split_cluster_members_df
         # Add the split-specific cluster_dict to the dictionary
